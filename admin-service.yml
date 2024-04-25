@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gis-adminservice-ssl-config
+data:
+  LOG_LEVEL: INFO
+  POSTGRES_DB_HOST: "116.103.227.55"
+  POSTGRES_DB_PORT: "5432"
+  POSTGRES_DB_NAME: gis_qni
+  POSTGRES_DB_USERNAME: postgres
+  POSTGRES_DB_PASSWORD: ENC(5uC+KoLFCEps9wqO1fdlzpfwhEZuM36g)
+  FILE_SERVICE_URL: http://gis-fileservice:8004
+  IMAGE_URL: "https://thanhphoquangngai.vgis.vn/api/files"
+  AUTH_SERVICE_URL: http://gis-authservice:8002
+  KEYCLOAK_BASE_URL: http://sso.vgis.vn/
+  KEYCLOAK_REALM: gis-realm
+  KEYCLOAK_ADMIN_REALM: master
+  KEYCLOAK_ADMIN_CLIENT: admin-cli
+  KEYCLOAK_USERNAME: admin
+  KEYCLOAK_PASSWORD: Maps@2023
+  PORT: "8003"
+  DEFAULT_PASSWORD: Maps@2023
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gis-adminservice-ingress
+  annotations:
+    konghq.com/strip-path: "true"
+  namespace: gis
+spec:
+  ingressClassName: kong
+  rules:
+    - http:
+        paths:
+          - path: /adminservice
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: gis-adminservice
+                port:
+                  number: 8003
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gis-adminservice
+  labels:
+    app: gis
+    module: gis-adminservice
+spec:
+  type: ClusterIP
+  selector:
+    app: gis
+    module: gis-adminservice
+  ports:
+    - port: 8003
+      targetPort: 8003
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gis-adminservice
+spec:
+  selector:
+    matchLabels:
+      app: gis
+      module: gis-adminservice
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: gis
+        module: gis-adminservice
+    spec:
+      containers:
+        - name: gis-adminservice
+          # image: mobifone123/adminservice:20240322_vC1
+          image: mobifone123/adminservice:20240327_vC1
+          ports:
+            - containerPort: 8003
+          resources:
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+          envFrom:
+            - configMapRef:
+                name: gis-adminservice-ssl-config
+            - secretRef:
+                name: gis-jasypt-encryptor-password
